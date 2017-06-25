@@ -31,7 +31,7 @@ public class LCD extends EV3DevDevice implements GraphicsLCD {
 
     //PiStorms
     public static final int PISTORMS_SCREEN_WIDTH = 320;
-    public static final int EPISTORMS_SCREEN_HEIGHT = 240;
+    public static final int PISTORMS_SCREEN_HEIGHT = 240;
 
     private BufferedImage image;
     private Graphics2D g2d;
@@ -58,7 +58,7 @@ public class LCD extends EV3DevDevice implements GraphicsLCD {
         } else if(this.getPlatform().equals(EV3DevPlatform.PISTORMS)) {
             FB_PATH = PISTORMS_FBDEV_PATH;
             //TODO some variables comes from EV3 Tests. It is necessary to test
-            init(PISTORMS_SCREEN_WIDTH, EPISTORMS_SCREEN_HEIGHT, EV3_LINE_LEN, EV3_BUFFER_SIZE);
+            init(EV3_SCREEN_WIDTH, EV3_SCREEN_HEIGHT, EV3_LINE_LEN, EV3_BUFFER_SIZE);
         } else {
             LOGGER.error("This actuator was only tested for: {} & {}", EV3DevPlatform.EV3BRICK, EV3DevPlatform.PISTORMS);
             throw new RuntimeException("This actuator was only tested for: " + EV3DevPlatform.EV3BRICK + " & " + EV3DevPlatform.PISTORMS);
