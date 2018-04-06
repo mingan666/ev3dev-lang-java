@@ -36,6 +36,21 @@ public class Sound extends EV3DevDevice {
     private static String VOLUME_PATH;
     private final static  String DISABLED_FEATURE_MESSAGE = "This feature is disabled for this platform.";
 
+    /**
+     *  The sample rate - 44,100 Hz for CD quality audio.
+     */
+    public static final int SAMPLE_RATE = 44100;
+
+    private static final int BYTES_PER_SAMPLE = 2;                // 16-bit audio
+    private static final int BITS_PER_SAMPLE = 16;                // 16-bit audio
+    private static final double MAX_16_BIT = Short.MAX_VALUE;     // 32,767
+    private static final int SAMPLE_BUFFER_SIZE = 4096;
+
+
+    private static SourceDataLine line;   // to play the sound
+    private static byte[] buffer;         // our internal buffer
+    private static int bufferSize = 0;    // number of samples currently in internal buffer
+
     private int volume = 0;
 
     private static Sound instance;
@@ -62,8 +77,33 @@ public class Sound extends EV3DevDevice {
 
         EV3_SOUND_PATH  = Objects.nonNull(System.getProperty(EV3DEV_SOUND_KEY)) ? System.getProperty(EV3DEV_SOUND_KEY) : EV3_PHYSICAL_SOUND_PATH;
         VOLUME_PATH = EV3_SOUND_PATH + "/" + VOLUME;
+
+        init();
     }
-    
+
+    // open up an audio stream
+    private void init() {
+        try {
+            // 44,100 samples per second, 16-bit audio, mono, signed PCM, little Endian
+            AudioFormat format = new AudioFormat((float) SAMPLE_RATE, BITS_PER_SAMPLE, 1, true, false);
+            DataLine.Info info = new DataLine.Info(SourceDataLine.class, format);
+
+            line = (SourceDataLine) AudioSystem.getLine(info);
+            line.open(format, SAMPLE_BUFFER_SIZE * BYTES_PER_SAMPLE);
+
+            // the internal buffer is a fraction of the actual buffer size, this choice is arbitrary
+            // it gets divided because we can't expect the buffered data to line up exactly with when
+            // the sound card decides to push out its samples.
+            buffer = new byte[SAMPLE_BUFFER_SIZE * BYTES_PER_SAMPLE/3];
+        }
+        catch (LineUnavailableException e) {
+            System.out.println(e.getMessage());
+        }
+
+        // no sound gets made before this call
+        line.start();
+    }
+
     /**
      * Beeps once.
      */
@@ -103,7 +143,16 @@ public class Sound extends EV3DevDevice {
             LOGGER.debug(DISABLED_FEATURE_MESSAGE);
         }
     }
-    
+
+    public static double[] tone(double hz, double duration) {
+        int n = (int) (SAMPLE_RATE * duration);
+        double[] a = new double[n+1];
+        for (int i = 0; i <= n; i++) {
+            a[i] = Math.sin(2 * Math.PI * i * hz / SAMPLE_RATE);
+        }
+        return a;
+    }
+
     /**
      * Plays a tone, given its frequency and duration. 
      * @param frequency The frequency of the tone in Hertz (Hz).
@@ -111,10 +160,56 @@ public class Sound extends EV3DevDevice {
      */
     public void playTone(final int frequency, final int duration) {
         if(this.getPlatform().equals(EV3DevPlatform.EV3BRICK)) {
-            final String cmdTone = CMD_BEEP + " -f " + frequency + " -l " + duration;
-            Shell.execute(cmdTone);
+
+            // create the array
+            double[] a = tone(frequency, duration);
+
+            // play it using standard audio
+            play(a);
+
         } else {
             LOGGER.debug(DISABLED_FEATURE_MESSAGE);
+        }
+    }
+
+    /**
+     * Writes one sample (between -1.0 and +1.0) to standard audio.
+     * If the sample is outside the range, it will be clipped.
+     *
+     * @param  sample the sample to play
+     * @throws IllegalArgumentException if the sample is {@code Double.NaN}
+     */
+    public static void play(double sample) {
+
+        // clip if outside [-1, +1]
+        if (Double.isNaN(sample)) throw new IllegalArgumentException("sample is NaN");
+        if (sample < -1.0) sample = -1.0;
+        if (sample > +1.0) sample = +1.0;
+
+        // convert to bytes
+        short s = (short) (MAX_16_BIT * sample);
+        buffer[bufferSize++] = (byte) s;
+        buffer[bufferSize++] = (byte) (s >> 8);   // little Endian
+
+        // send to sound card if buffer is full
+        if (bufferSize >= buffer.length) {
+            line.write(buffer, 0, buffer.length);
+            bufferSize = 0;
+        }
+    }
+
+    /**
+     * Writes the array of samples (between -1.0 and +1.0) to standard audio.
+     * If a sample is outside the range, it will be clipped.
+     *
+     * @param  samples the array of samples to play
+     * @throws IllegalArgumentException if any sample is {@code Double.NaN}
+     * @throws IllegalArgumentException if {@code samples} is {@code null}
+     */
+    public static void play(double[] samples) {
+        if (samples == null) throw new IllegalArgumentException("argument to play() is null");
+        for (int i = 0; i < samples.length; i++) {
+            play(samples[i]);
         }
     }
 
@@ -163,6 +258,14 @@ public class Sound extends EV3DevDevice {
      */
     public int getVolume() {
         return this.volume;
+    }
+
+    /**
+     * Closes standard audio.
+     */
+    public static void close() {
+        line.drain();
+        line.stop();
     }
 
 }

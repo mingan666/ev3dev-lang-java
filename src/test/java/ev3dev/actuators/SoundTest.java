@@ -6,6 +6,7 @@ import ev3dev.utils.JarResource;
 import fake_ev3dev.ev3dev.actuators.FakeSound;
 import fake_ev3dev.ev3dev.sensors.FakeBattery;
 import org.junit.Before;
+import org.junit.Ignore;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.ExpectedException;
@@ -88,6 +89,7 @@ public class SoundTest {
         assertThat(sound.getVolume(), is(20));
     }
 
+    @Ignore("Not run on Travis.")
     @Test
     public void playSample() throws Exception {
 
@@ -115,6 +117,7 @@ public class SoundTest {
         sound.playSample(new File(filePath));
     }
 
+    @Ignore("Not run on Travis.")
     @Test
     public void playSampleWitVolume() throws Exception {
 
@@ -131,6 +134,7 @@ public class SoundTest {
         JarResource.delete(result);
     }
 
+    @Ignore("Not run on Travis.")
     @Test
     public void playTone() throws Exception {
 
@@ -138,9 +142,10 @@ public class SoundTest {
         final FakeSound fakeSound = new FakeSound(EV3DevPlatform.EV3BRICK);
 
         Sound sound = Sound.getInstance();
-        sound.playTone(100, 100);
+        sound.playTone(100, 1);
     }
 
+    @Ignore("Not run on Travis.")
     @Test
     public void playToneWithVolume() throws Exception {
 
